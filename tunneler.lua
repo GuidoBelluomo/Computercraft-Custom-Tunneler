@@ -332,7 +332,11 @@ function dumpInventoryInStorage()
         local itemDetail = turtle.getItemDetail(slot);
         if (itemDetail ~= nil) then
             turtle.select(slot);
-            turtle.drop();
+
+            local success = false;
+            repeat
+                success = turtle.drop();
+            until success
         end
     end
 end
