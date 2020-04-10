@@ -725,9 +725,9 @@ function moveToCoordinates(newPosition, bForced)
 end
 
 function printUsage()
-    print("Avanti Su Destra Direzione(Up, Down, Forward)");
-    print("Posizionare una chest davanti al turtle");
-    print("\tOpzioni:");
+    print("Length Width Depth DigDirection(Up, Down, Forward)");
+    print("Place the turtle adjacent and facing a chest");
+    print("\tSettings:");
     print("\t\t--resume");
     print("\t\t-filter x,...");
     print("\t\t-filter junk");
@@ -818,8 +818,8 @@ function readArguments()
     end
 
     local forwardAxis = tonumber(args[1]);
-    local upAxis = tonumber(args[2]);
-    local rightAxis = tonumber(args[3]);
+    local upAxis = tonumber(args[3]);
+    local rightAxis = tonumber(args[2]);
     
     if (forwardAxis == nil or upAxis == nil or rightAxis == nil) then
         error = true;
