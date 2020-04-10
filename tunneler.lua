@@ -326,7 +326,7 @@ function refuel(fuelThreshold)
     return true;
 end
 
-function dumpInventory()
+function dumpInventory(bSafe)
     for i = 1, inventorySlots do
         local slot = (fuelSlot or 0) + i;
         if (slot > 16) then
@@ -335,7 +335,7 @@ function dumpInventory()
         local itemDetail = turtle.getItemDetail(slot);
         if (itemDetail ~= nil) then
             turtle.select(slot);
-            if (destructiveMode) then
+            if (not bSafe and destructiveMode) then
                 if (not isValidFuel()) then
                     turtle.dropUp();
                 end
@@ -390,6 +390,9 @@ function pitStop(bResuming)
     faceDirection(-vector.forward());
 
     dumpInventory();
+    if (isInventoryFull()) then
+        dumpInventory(true);
+    end
     restockFuel();
 
     repeat
@@ -673,12 +676,22 @@ end
 
 function move(directionData, bForced)
     if (not bForced) then
-        if (not destructiveMode and isInventoryFull()) then
-            pitStop();
+        if (isInventoryFull()) then
+            if (destructiveMode) then
+                dumpInventory();
+                if (isInventoryFull()) then
+                    pitStop();
+                end
+            else
+                pitStop();
+            end
             return;
-        elseif (shouldRefuel(getHomingCost())) then
+        end
+
+        if (shouldRefuel(getHomingCost())) then
             if (not refuel(getHomingCost() + 1)) then
                 pitStop();
+                return;
             end
         end
     end
