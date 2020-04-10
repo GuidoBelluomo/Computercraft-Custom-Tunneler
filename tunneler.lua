@@ -105,12 +105,6 @@ function playTune(tune)
     end
 end
 
-function playTuneAsync(tune)
-    local c = coroutine.create(playTune);
-    coroutine.resume(c, tune);
-    return c;
-end
-
 local args = {...};
 local fuelSlot = nil;
 local inventorySlots = 16;
