@@ -1,5 +1,6 @@
 local args = {...};
 local speaker = peripheral.find("speaker");
+local destructiveMode = false;
 local notes = {
     ["F#0"] = 0,
     ["G0"] = 1,
@@ -154,10 +155,12 @@ local filteredItems = {};
 
 function addFilterID(id)
     filteredItems[id] = true;
+    saveStatus();
 end
 
 function removeFilterId(id)
     filteredItems[id] = nil;
+    saveStatus();
 end
 
 function filterInventory()
@@ -218,7 +221,7 @@ local junkBlacklist = {
 }
 
 function loadJunkBlacklist()
-    filterMode = FilterMode.Blacklist;
+    setFilterMode(FilterMode.Blacklist);
     for k, v in pairs (junkBlacklist) do
         addFilterID(v);
     end
@@ -323,7 +326,7 @@ function refuel(fuelThreshold)
     return true;
 end
 
-function dumpInventoryInStorage()
+function dumpInventory()
     for i = 1, inventorySlots do
         local slot = (fuelSlot or 0) + i;
         if (slot > 16) then
@@ -332,16 +335,21 @@ function dumpInventoryInStorage()
         local itemDetail = turtle.getItemDetail(slot);
         if (itemDetail ~= nil) then
             turtle.select(slot);
-
-            local success = false;
-            repeat
-                success = turtle.drop();
-            until success
+            if (destructiveMode) then
+                if (not isValidFuel()) then
+                    turtle.dropUp();
+                end
+            else
+                local success = false;
+                repeat
+                    success = turtle.drop();
+                until success
+            end
         end
     end
 end
 
-function restockFuelFromStorage()
+function restockFuel()
     fuelSlot = 1;
     turtle.select(fuelSlot);
     local completed = false;
@@ -381,13 +389,13 @@ function pitStop(bResuming)
     moveToCoordinates(vector.zero(), true);
     faceDirection(-vector.forward());
 
-    dumpInventoryInStorage();
-    restockFuelFromStorage();
+    dumpInventory();
+    restockFuel();
 
     repeat
         fueled = refuel((getReturnCost() * 2) + 1);
         if (not fueled) then
-            restockFuelFromStorage();
+            restockFuel();
         end
     until fueled;
 
@@ -401,7 +409,7 @@ function parkTurtle()
 
     moveToCoordinates(vector.zero(), true);
     faceDirection(-vector.forward());
-    dumpInventoryInStorage();
+    dumpInventory();
 
     setStatus(Status.Stopped);
 end
@@ -472,6 +480,7 @@ function saveStatus()
     h.writeLine(tostring(status));
     h.writeLine(tostring(digDirection));
     h.writeLine(tostring(dugBlocks));
+    h.writeLine(tostring(destructiveMode));
 
     h.writeLine(tostring(localPosition.x));
     h.writeLine(tostring(localPosition.y));
@@ -511,6 +520,10 @@ function loadStatus()
     status = tonumber(h.readLine());
     digDirection = tonumber(h.readLine());
     dugBlocks = tonumber(h.readLine());
+    destructiveMode = h.readLine();
+    if (destructiveMode ~= nil) then
+        destructiveMode = (destructiveMode == "true");
+    end
 
     localPosition.x = tonumber(h.readLine());
     localPosition.y = tonumber(h.readLine());
@@ -546,7 +559,8 @@ function loadStatus()
         status == nil or
         filterMode == nil or
         digDirection == nil or
-        dugBlocks == nil
+        dugBlocks == nil or
+        destructiveMode == nil
     ) then
         print("Resume File is Corrupt");
         return false;
@@ -575,6 +589,11 @@ end
 
 function setDugBlocks(num)
     dugBlocks = num;
+    saveStatus();
+end
+
+function setFilterMode(mode)
+    filterMode = mode;
     saveStatus();
 end
 
@@ -654,7 +673,7 @@ end
 
 function move(directionData, bForced)
     if (not bForced) then
-        if (isInventoryFull()) then
+        if (not destructiveMode and isInventoryFull()) then
             pitStop();
             return;
         elseif (shouldRefuel(getHomingCost())) then
@@ -733,6 +752,7 @@ function printUsage()
     print("Place the turtle adjacent and facing a chest");
     print("\tSettings:");
     print("\t\t--resume");
+    print("\t\t--destructive");
     print("\t\t-filter x,...");
     print("\t\t-filter junk");
     print("\t\t-unfilter x,...");
@@ -790,7 +810,7 @@ function readArguments()
         if (#arg > 1) then
             arg = string.upper(string.sub(arg, 1, 1)) .. string.lower(string.sub(arg, 2));
             if (FilterMode[arg] ~= nil) then
-                filterMode = FilterMode[arg];
+                setFilterMode(FilterMode[arg]);
                 return true;
             end
         end
@@ -804,12 +824,28 @@ function readArguments()
         ["filtermode"] = filtermodeFunc
     }
 
+    local function destructiveFunc()
+        destructiveMode = true;
+        setFilterMode(FilterMode.None);
+    end
+
+    local options = {
+        ["destructive"] = destructiveFunc
+    }
+
     local function processArguments()
         for i = 5, #args do
             if (currentParameter == nil) then
-                local arg = string.sub(args[i], 2);
-                if (parameters[arg] ~= nil) then
-                    currentParameter = arg;
+                if (string.sub(args[i], 1, 2) == "--") then
+                    local arg = string.sub(args[i], 3);
+                    if (options[arg] ~= nil) then
+                        options[arg]();
+                    end
+                elseif (string.sub(args[1], 1, 1) == "-") then
+                    local arg = string.sub(args[i], 2);
+                    if (parameters[arg] ~= nil) then
+                        currentParameter = arg;
+                    end
                 end
             else
                 local arg = args[i];
@@ -874,8 +910,8 @@ end
 
 function doEasterEgg()
     moveToCoordinates(vector.zero());
-    dumpInventoryInStorage();
-    restockFuelFromStorage();
+    dumpInventory();
+    restockFuel();
     refuel(easterEggHeight * 2);
     parallel.waitForAll(doEasterEggTune, doEasterEggMovement); 
 end
@@ -887,9 +923,10 @@ function start()
         return false;
     end
 
+    saveStatus();
     if (status == Status.Starting) then
-        dumpInventoryInStorage();
-        restockFuelFromStorage();
+        dumpInventory();
+        restockFuel();
         refuel(2);
     elseif (status == Status.PitStop) then
         pitStop(true);
