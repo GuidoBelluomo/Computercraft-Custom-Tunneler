@@ -56,6 +56,9 @@ _DigDirection = Either "**Up**", "**Down**", or "**Forward**"_
 #### --resume
 If the turtle stops for whatever reason, you can attempt resuming by running it with just this parameter.
 
+#### --destructive
+Runs the turtle in destructive mode. This is optimized on speed, and will not ever attempt recovering collected items. Instead, it will toss anything that isn't fuel.
+
 #### -filter x,...
 This option adds the item IDs contained afterwards (in a comma-separated list) to the filter.
 
